@@ -36,7 +36,8 @@ object MustacheModel {
 
   case class PartialBlock(pos: Int, partialName: String) extends MustacheBlock {
     def render(mustacheWorld: File => MustacheRoot, currentPath: File, context: MustacheContext) = {
-      val partialPath = new File(currentPath.getParentFile.getAbsolutePath, s"$partialName.mustache").getCanonicalFile
+      val parentPath = currentPath.getParentFile.getAbsolutePath
+      val partialPath = new File(parentPath, s"$partialName.mustache").getCanonicalFile
       try {
         mustacheWorld(partialPath).render(mustacheWorld, partialPath, context)
       } catch {

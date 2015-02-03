@@ -4,7 +4,7 @@ import net.mauhiz.poustache.MustacheModel.KeyNotFoundException
 
 import scala.util.Try
 
-case class MustacheContext(initialContext: Any) {
+case class MustacheContext(initialContext: Any, strict: Boolean = true) {
 
   import MustacheContext._
 
@@ -49,27 +49,23 @@ case class MustacheContext(initialContext: Any) {
   def printEscape(pos: Int, key: String): String = escape(printNoEscape(pos, key))
 
   def printNoEscape(pos: Int, key: String): String = {
-    if (key == ".") {
-      contextStack.headOption.getOrElse(throw KeyNotFoundException(pos, key)).toString
-    }
     lookup(key) match {
-      case None => {
-        throw KeyNotFoundException(pos, key)
-      }
+      case None => if (strict) throw KeyNotFoundException(pos, key) else ""
       case Some(Some(item)) => item.toString
       case Some(item)       => item.toString
     }
   }
 
   private def lookup(key: String): Option[Any] = {
-    if (key == ".") {
-      contextStack.headOption
-    } else {
-      for (item <- contextStack) {
-        val lookedUp = singleLookup(key, item)
-        if (lookedUp.isDefined) return lookedUp
-      }
-      None
+    val keyParts = key.split('.')
+    keyParts.headOption match {
+      case None => contextStack.headOption
+      case Some(headKey) =>
+        for (item <- contextStack) {
+          val lookedUp = singleLookup(headKey, item)
+          if (lookedUp.isDefined) return lookedUp
+        }
+        if (strict) throw KeyNotFoundException(-1, key) else None
     }
   }
 
