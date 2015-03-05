@@ -1,7 +1,7 @@
 package net.mauhiz.poustache
 
-import java.io.{FileNotFoundException, File}
-import java.nio.charset.{StandardCharsets, Charset}
+import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
 import org.json4s.JsonAST._
@@ -40,7 +40,7 @@ class MustacheOfficialSpec extends FunSpec with Matchers {
               def currentFile: File = new File(".")
               mustacheRoot.render({ f: File => ???}, currentFile, context) shouldBe testExpected
             } catch {
-              case ParseError(position, traces) => fail(s"Could not parse: $testTemplate")
+              case pe: ParseError => fail(s"Could not parse: $testTemplate")
               case nie: NotImplementedError => fail("Oops")
               case NonFatal(e) => fail(e)
             }

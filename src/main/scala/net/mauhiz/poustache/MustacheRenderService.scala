@@ -3,7 +3,7 @@ package net.mauhiz.poustache
 import java.io.{File, FileNotFoundException}
 
 import net.mauhiz.poustache.MustacheModel._
-import org.parboiled2.ParseError
+import org.parboiled2.{ErrorFormatter, ParseError}
 
 import scala.collection.concurrent.TrieMap
 import scala.io.{Codec, Source}
@@ -32,7 +32,7 @@ class MustacheRenderService(templateRootDirectory: File, precompile: Boolean) {
         (f, (mustacheRoot, f.lastModified()))
       } catch {
         case pe: ParseError => {
-          Console.err.println(parser.formatError(pe, showExpected = true, showPosition = true, showLine = true, showTraces = true))
+          Console.err.println(parser.formatError(pe))
           throw MustacheException(f, pe)
         }
       }
