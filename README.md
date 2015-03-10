@@ -1,6 +1,18 @@
 # poustache
-A mustache compiler for Scala, based on parboiled2
+A mustache compiler + template manager for Scala, based on parboiled2
 
-It does not even pass half the mustache spec yet but all hope is not lost yet.
+## Usage
+``
+val mustacheService = new MustacheRenderService(templatesRootDirectory, true)
+mustacheService.template("pooh!").render("a" -> true, "b" -> "gruik")
+``
+
+## Not supported yet :
+- dotted names
+- lambdas
+
+## Known bugs
+- It does not really get standalone lines
+- Nested objects in context are not looked up
 
 [![Build Status](https://travis-ci.org/mauhiz/poustache.svg)](https://travis-ci.org/mauhiz/poustache)

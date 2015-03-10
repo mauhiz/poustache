@@ -1,48 +1,63 @@
 package net.mauhiz.poustache
 
-import net.mauhiz.poustache.MustacheModel.KeyNotFoundException
-
 import scala.util.Try
 
 case class MustacheContext(initialContext: Any, strict: Boolean = true) {
 
-  import MustacheContext._
+  import net.mauhiz.poustache.MustacheContext._
 
   var contextStack: Seq[Any] = Vector(initialContext)
 
   def context(contextName: String, innerContent: => String): String = {
-    lookup(contextName) match {
-      case None | Some(false) => ""
-      case Some(true)         => innerContent
-      case Some(trav: TraversableOnce[_]) => trav.map {
-        seqItem =>
-          contextStack = seqItem +: contextStack
-          val out = innerContent
-          contextStack = contextStack.tail
-          out
-      }.mkString("")
-      case Some(mb: Option[_]) => mb.map {
-        item =>
-          contextStack = item +: contextStack
-          val out = innerContent
-          contextStack = contextStack.tail
-          out
-      }.mkString("")
-      case Some(item: Any) => {
-        contextStack = item +: contextStack
-        val out = innerContent
-        contextStack = contextStack.tail
-        out
+    contextName.indexOf('.') match {
+      case dotIndex if dotIndex >= 0 && contextName.size > 1 => {
+        val headContextName = contextName.substring(0, dotIndex)
+        val tailContextName = contextName.substring(dotIndex + 1)
+        context(headContextName, context(tailContextName, innerContent))
       }
+      case -1 =>
+        lookup(contextName) match {
+          case None | Some(false) => ""
+          case Some(true)         => innerContent
+          case Some(trav: TraversableOnce[_]) => trav.map {
+            seqItem =>
+              contextStack = seqItem +: contextStack
+              val out = innerContent
+              contextStack = contextStack.tail
+              out
+          }.mkString("")
+          case Some(mb: Option[_]) => mb.map {
+            item =>
+              contextStack = item +: contextStack
+              val out = innerContent
+              contextStack = contextStack.tail
+              out
+          }.mkString("")
+          case Some(item: Any) => {
+            contextStack = item +: contextStack
+            val out = innerContent
+            contextStack = contextStack.tail
+            out
+          }
+        }
     }
   }
 
   def notContext(contextName: String, innerContent: => String): String = {
-    lookup(contextName) match {
-      case None | Some(false) => innerContent
-      case Some(trav: TraversableOnce[_]) if trav.isEmpty => innerContent
-      case Some(opt: Option[_]) if opt.isEmpty => innerContent
-      case _ => ""
+    contextName.indexOf('.') match {
+      case dotIndex if dotIndex >= 0 && contextName.size > 1 => {
+        val headContextName = contextName.substring(0, dotIndex)
+        val tailContextName = contextName.substring(dotIndex + 1)
+        // FIXME the logic is wrong here.
+        notContext(headContextName, notContext(tailContextName, innerContent))
+      }
+      case -1 =>
+        lookup(contextName) match {
+          case None | Some(false) => innerContent
+          case Some(trav: TraversableOnce[_]) if trav.isEmpty => innerContent
+          case Some(opt: Option[_]) if opt.isEmpty => innerContent
+          case _ => ""
+        }
     }
   }
 
@@ -56,16 +71,17 @@ case class MustacheContext(initialContext: Any, strict: Boolean = true) {
     }
   }
 
-  private def lookup(key: String): Option[Any] = {
-    val keyParts = key.split('.')
-    keyParts.headOption match {
-      case None => contextStack.headOption
-      case Some(headKey) =>
-        for (item <- contextStack) {
-          val lookedUp = singleLookup(headKey, item)
-          if (lookedUp.isDefined) return lookedUp
-        }
-        if (strict) throw KeyNotFoundException(-1, key) else None
+  private def lookup(key: String, withContext: Seq[Any] = contextStack): Option[Any] = {
+    if (key == ".") {
+      contextStack.headOption
+    } else if (key.isEmpty || key.endsWith(".")) {
+      throw new KeyNotFoundException(-1, "")
+    } else {
+      for (item <- contextStack) {
+        val lookedUp = singleLookup(key, item)
+        if (lookedUp.isDefined) return lookedUp
+      }
+      if (strict) throw KeyNotFoundException(-1, key) else None
     }
   }
 
