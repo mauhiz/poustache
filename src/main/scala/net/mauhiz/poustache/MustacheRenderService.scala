@@ -2,16 +2,13 @@ package net.mauhiz.poustache
 
 import java.io.{File, FileNotFoundException}
 
-import net.mauhiz.poustache.MustacheModel._
-import org.parboiled2.{ErrorFormatter, ParseError}
-
 import scala.collection.concurrent.TrieMap
 import scala.io.{Codec, Source}
 import scala.util.control.NonFatal
 
-class MustacheRenderService(templateRootDirectory: File, precompile: Boolean) {
+class MustacheRenderService(templateRootDirectory: File, precompile: Boolean)(implicit lineSeparator: LineSeparator = LineSeparator.System) {
 
-  private val mustacheWorld: scala.collection.mutable.Map[File, (MustacheRoot, Long)] = TrieMap.empty
+  private val mustacheWorld: scala.collection.mutable.Map[File, (MustacheBlock, Long)] = TrieMap.empty
 
 
   if (precompile) {
@@ -19,29 +16,20 @@ class MustacheRenderService(templateRootDirectory: File, precompile: Boolean) {
     mustacheWorld ++= getFileTree(templateRootDirectory).filter(_.getName.endsWith(".mustache")).map(parseMustache)
   }
 
-  private def parseMustache(f: File): (File, (MustacheRoot, Long)) = {
+  private def parseMustache(f: File): (File, (MustacheBlock, Long)) = {
     if (!f.getAbsolutePath.startsWith(templateRootDirectory.getAbsolutePath)) {
       throw new IllegalArgumentException(s"Caught trying to creep up: $f")
     }
     try {
       val fileContents = Source.fromFile(f)(Codec.UTF8).mkString
-      val parser = new MustacheParser(fileContents)
-      try {
-        import org.parboiled2.Parser.DeliveryScheme.Throw
-        val mustacheRoot = parser.mustache.run()
-        (f, (mustacheRoot, f.lastModified()))
-      } catch {
-        case pe: ParseError => {
-          Console.err.println(parser.formatError(pe))
-          throw MustacheException(f, pe)
-        }
-      }
+      val mustacheRoot = MustacheParser.parse(fileContents)
+      (f, (mustacheRoot, f.lastModified()))
     } catch {
       case NonFatal(e) => throw MustacheException(f, e)
     }
   }
 
-  def mustacheFinder(f: File): MustacheRoot = {
+  def mustacheFinder(f: File): MustacheBlock = {
     if (!f.exists() || !f.canRead) {
       mustacheWorld -= f
       throw new FileNotFoundException(f.getPath)

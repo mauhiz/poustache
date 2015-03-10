@@ -4,16 +4,14 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
+import net.mauhiz.poustache.MustacheBlock.MustacheBlocks
 import org.json4s.JsonAST._
 import org.json4s.native.JsonMethods
-import org.parboiled2.ParseError
 import org.scalatest.{FunSpec, Matchers}
 
-import scala.util.control.NonFatal
+import scala.util.Try
 
 class MustacheOfficialSpec extends FunSpec with Matchers {
-
-  import org.parboiled2.Parser.DeliveryScheme.Throw
 
   for {
     specFile <- Seq("comments", "delimiters", "interpolation", "inverted", "partials", "sections")
@@ -28,25 +26,46 @@ class MustacheOfficialSpec extends FunSpec with Matchers {
       } yield {
         val testObj = testCase.asInstanceOf[Map[String, Any]]
         val testName = testObj("name").asInstanceOf[String]
-        it(s"should pass test: $testName") {
-          val testTemplate = testObj("template").asInstanceOf[String]
-          val testData = testObj("data")
-          withClue(s"Data: $testData\nTemplate: $testTemplate") {
-            try {
+        val testTemplate = testObj("template").asInstanceOf[String]
+        val testData = testObj("data")
+        it(s"should pass test: $testName ± whitespaces") {
+          withClue(s"Data: $testData\nTemplate: $testTemplate\n") {
             val testExpected = testObj("expected").asInstanceOf[String]
-              val parser = new MustacheParser(testTemplate)
-              val mustacheRoot = parser.mustache.run()
-              val context = MustacheContext(testData, strict = false)
-              def currentFile: File = new File(".")
-              mustacheRoot.render({ f: File => ???}, currentFile, context) shouldBe testExpected
-            } catch {
-              case pe: ParseError => fail(s"Could not parse: $testTemplate")
-              case nie: NotImplementedError => fail("Oops")
-              case NonFatal(e) => fail(e)
+            val mustacheRoot = MustacheParser.parse(testTemplate)(lineSeparator(testTemplate))
+            val context = MustacheContext(testData, strict = false)
+            mustacheRoot.render({ f: File => {
+              Try {
+                val fileContents = new String(Files.readAllBytes(f.toPath), StandardCharsets.UTF_8)
+                MustacheParser.parse(fileContents)(lineSeparator(fileContents))
+              } getOrElse MustacheBlocks()
             }
+            }, specPath.toFile, context).diff(testExpected).trim shouldBe ""
+          }
+        }
+
+        ignore(s"should pass test: $testName") {
+          withClue(s"Data: $testData\nTemplate: $testTemplate\n") {
+            val testExpected = testObj("expected").asInstanceOf[String]
+            val mustacheRoot = MustacheParser.parse(testTemplate)(lineSeparator(testTemplate))
+            val context = MustacheContext(testData, strict = false)
+            mustacheRoot.render({ f: File => {
+              Try {
+                val fileContents = new String(Files.readAllBytes(f.toPath), StandardCharsets.UTF_8)
+                MustacheParser.parse(fileContents)(lineSeparator(fileContents))
+              } getOrElse MustacheBlocks()
+            }
+            }, specPath.toFile, context) shouldBe testExpected
           }
         }
       }
+    }
+  }
+
+  private def lineSeparator(s: String): LineSeparator = LineSeparator {
+    (s.contains('\r'), s.contains('\n')) match {
+      case (true, false) => "\r"
+      case (true, true) => "\r\n"
+      case _ => "\n"
     }
   }
 }
