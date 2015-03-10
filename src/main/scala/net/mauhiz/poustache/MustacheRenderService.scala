@@ -29,7 +29,7 @@ class MustacheRenderService(templateRootDirectory: File, precompile: Boolean)(im
     }
   }
 
-  def mustacheFinder(f: File): MustacheBlock = {
+  private[poustache] def mustacheFinder(f: File): MustacheBlock = {
     if (!f.exists() || !f.canRead) {
       mustacheWorld -= f
       throw new FileNotFoundException(f.getPath)

@@ -4,7 +4,6 @@ import java.util.regex.Pattern
 
 import net.mauhiz.poustache.MustacheAST._
 import net.mauhiz.poustache.MustacheBlock.{InContext, InInverseContext, MustacheBlocks}
-import net.mauhiz.poustache.MustacheParser._
 import org.parboiled2._
 
 import scala.language.implicitConversions
